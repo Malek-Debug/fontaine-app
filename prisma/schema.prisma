@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== AUTH & USERS ==============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          String    @default("teacher") // "admin" | "teacher"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  classes       Class[]
+  activities    Activity[]
+  gameSessions  GameSession[]
+  aiLogs        AiLog[]
+}
+
+// ============== CLASS MANAGEMENT ==============
+
+model Student {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  displayName   String
+  classId       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  class                  Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  answers                StudentAnswer[]
+  results                StudentResult[]
+  sessionParticipations  SessionParticipant[]
+}
+
+model Class {
+  id            String    @id @default(cuid())
+  name          String
+  gradeId       String
+  academicYear  String    @default("2026-2027")
+  joinCode      String    @unique
+  teacherId     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  grade         Grade     @relation(fields: [gradeId], references: [id])
+  teacher       User      @relation(fields: [teacherId], references: [id])
+  students      Student[]
+  sessions      GameSession[]
+}
+
+// ============== CURRICULUM HIERARCHY ==============
+// Grade -> Subject -> Unit -> Domain -> Lesson -> Skill
+
+model Grade {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  nameFr        String    @default("")
+  level         Int
+  createdAt     DateTime  @default(now())
+
+  subjects      Subject[]
+  classes       Class[]
+}
+
+model Subject {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  nameFr        String    @default("")
+  icon          String    @default("📚")
+  gradeId       String
+  createdAt     DateTime  @default(now())
+
+  grade         Grade     @relation(fields: [gradeId], references: [id])
+  units         Unit[]
+}
+
+model Unit {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String    @default("")
+  descriptionAr String    @default("")
+  themeAr       String    @default("")
+  orderIndex    Int
+  subjectId     String
+  createdAt     DateTime  @default(now())
+
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+  domains       Domain[]
+}
+
+model Domain {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String    @default("")
+  orderIndex    Int       @default(0)
+  unitId        String
+  createdAt     DateTime  @default(now())
+
+  unit          Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  lessons       Lesson[]
+}
+
+model Lesson {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String    @default("")
+  descriptionAr String    @default("")
+  orderIndex    Int
+  domainId      String
+  createdAt     DateTime  @default(now())
+
+  domain        Domain    @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  skills        Skill[]
+}
+
+model Skill {
+  id            String    @id @default(cuid())
+  name          String
+  nameAr        String
+  description   String    @default("")
+  descriptionAr String    @default("")
+  category      String    @default("reading") // "reading" | "writing" | "grammar" | "vocabulary" | "expression" | "dictation"
+  lessonId      String
+  createdAt     DateTime  @default(now())
+
+  lesson         Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  activities     Activity[]
+  studentResults StudentResult[]
+}
+
+// ============== ACTIVITIES & QUESTIONS ==============
+
+model Activity {
+  id            String    @id @default(cuid())
+  title         String
+  titleAr       String
+  description   String    @default("")
+  descriptionAr String    @default("")
+  gameType      String    // "quiz" | "true_false" | "matching" | "sentence_builder" | "order_story" | "grammar_detective" | "find_mistake" | "vocabulary"
+  difficulty    String    @default("medium") // "easy" | "medium" | "hard"
+  timeLimit     Int       @default(30)
+  points        Int       @default(10)
+  skillId       String
+  createdBy     String
+  isAiGenerated Boolean   @default(false)
+  status        String    @default("published") // "draft" | "published" | "archived"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  skill         Skill         @relation(fields: [skillId], references: [id])
+  creator       User          @relation(fields: [createdBy], references: [id])
+  questions     Question[]
+  gameSessions  GameSession[]
+}
+
+model Question {
+  id            String    @id @default(cuid())
+  activityId    String
+  orderIndex    Int
+  questionText  String
+  questionType  String
+  data          String    // JSON: game-type-specific content
+  explanation   String    @default("")
+  points        Int       @default(10)
+  createdAt     DateTime  @default(now())
+
+  activity       Activity        @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  studentAnswers StudentAnswer[]
+  classResponses ClassResponse[]
+}
+
+// ============== GAME SESSIONS ==============
+
+model GameSession {
+  id                   String    @id @default(cuid())
+  code                 String    @unique
+  status               String    @default("waiting") // "waiting" | "active" | "paused" | "completed"
+  mode                 String    @default("individual") // "individual" | "teacher_led" | "team"
+  showLeaderboard      Boolean   @default(true)
+  activityId           String
+  classId              String
+  teacherId            String
+  currentQuestionIndex Int       @default(0)
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  activity       Activity             @relation(fields: [activityId], references: [id])
+  class          Class                @relation(fields: [classId], references: [id])
+  teacher        User                 @relation(fields: [teacherId], references: [id])
+  participants   SessionParticipant[]
+  studentAnswers StudentAnswer[]
+  teams          Team[]
+  classResponses ClassResponse[]
+}
+
+model Team {
+  id            String    @id @default(cuid())
+  sessionId     String
+  name          String
+  color         String    @default("#3B82F6")
+  score         Int       @default(0)
+  orderIndex    Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  session       GameSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  members       SessionParticipant[]
+
+  @@unique([sessionId, name])
+}
+
+model SessionParticipant {
+  id            String    @id @default(cuid())
+  sessionId     String
+  studentId     String
+  teamId        String?
+  joinedAt      DateTime  @default(now())
+  isConnected   Boolean   @default(true)
+  totalScore    Int       @default(0)
+
+  session       GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student       Student     @relation(fields: [studentId], references: [id])
+  team          Team?       @relation(fields: [teamId], references: [id])
+
+  @@unique([sessionId, studentId])
+}
+
+model ClassResponse {
+  id            String    @id @default(cuid())
+  sessionId     String
+  questionId    String
+  answer        String
+  isCorrect     Boolean
+  score         Int       @default(0)
+  answeredAt    DateTime  @default(now())
+
+  session       GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question      Question    @relation(fields: [questionId], references: [id])
+
+  @@unique([sessionId, questionId])
+}
+
+// ============== ANSWERS & RESULTS ==============
+
+model StudentAnswer {
+  id            String    @id @default(cuid())
+  sessionId     String
+  studentId     String
+  questionId    String
+  answer        String    // JSON: the student's answer
+  isCorrect     Boolean
+  score         Int       @default(0)
+  timeSpent     Int?      // milliseconds
+  answeredAt    DateTime  @default(now())
+
+  session       GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student       Student     @relation(fields: [studentId], references: [id])
+  question      Question    @relation(fields: [questionId], references: [id])
+
+  @@unique([sessionId, studentId, questionId])
+}
+
+model StudentResult {
+  id            String    @id @default(cuid())
+  studentId     String
+  skillId       String
+  totalAttempts Int       @default(0)
+  correctCount  Int       @default(0)
+  masteryLevel  String    @default("not_started") // "not_started" | "developing" | "proficient" | "mastered"
+  lastAttemptAt DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  student       Student   @relation(fields: [studentId], references: [id])
+  skill         Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([studentId, skillId])
+}
+
+// ============== AI LOGGING ==============
+
+model AiLog {
+  id            String    @id @default(cuid())
+  teacherId     String
+  type          String    // "generation" | "remediation" | "chat" | "explanation"
+  skillId       String?
+  activityId    String?
+  model         String    @default("local")
+  promptVersion String    @default("v1")
+  inputTokens   Int       @default(0)
+  outputTokens  Int       @default(0)
+  durationMs    Int       @default(0)
+  status        String    @default("success") // "success" | "error" | "timeout" | "rate_limited"
+  errorMessage  String?
+  resultSummary String?
+  approvalStatus String?  // "draft" | "approved" | "rejected" | null for chat/explanation
+  createdAt     DateTime  @default(now())
+
+  teacher       User      @relation(fields: [teacherId], references: [id])
+}
