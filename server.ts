@@ -8,6 +8,11 @@ const dev = process.env.NODE_ENV !== 'production'
 const hostname = dev ? 'localhost' : '0.0.0.0'
 const port = parseInt(process.env.PORT || '3000', 10)
 
+if (!dev && process.env.RENDER_EXTERNAL_URL && !process.env.AUTH_URL) {
+  process.env.AUTH_URL = process.env.RENDER_EXTERNAL_URL
+  process.env.NEXTAUTH_URL = process.env.RENDER_EXTERNAL_URL
+}
+
 const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
