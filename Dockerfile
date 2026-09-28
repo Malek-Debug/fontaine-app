@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY package.json package-lock.json ./
-RUN npm install --omit=dev && npm install typescript
+RUN npm install --omit=dev
 
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
@@ -32,7 +32,7 @@ COPY --from=builder /app/server.ts ./
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/messages ./messages
-COPY --from=builder /app/next.config.ts ./
+COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/tsconfig.json ./
 COPY --from=builder /app/postcss.config.mjs ./
 
