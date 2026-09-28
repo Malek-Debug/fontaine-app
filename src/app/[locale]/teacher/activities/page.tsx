@@ -157,7 +157,8 @@ export default function ActivitiesListPage() {
                 className="animate-slideUp"
                 style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
               >
-                <Card className="h-full group">
+                <Link href={`/teacher/activities/${activity.id}`} className="block h-full">
+                <Card className="h-full group" hover>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className={cn(
@@ -179,7 +180,7 @@ export default function ActivitiesListPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDuplicate(activity.id)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDuplicate(activity.id); }}
                       disabled={duplicating === activity.id}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors disabled:opacity-50"
                       title="نسخ النشاط"
@@ -212,6 +213,7 @@ export default function ActivitiesListPage() {
                     )}
                   </div>
                 </Card>
+                </Link>
               </div>
             );
           })}
