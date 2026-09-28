@@ -6,7 +6,7 @@ WORKDIR /app
 # ── Dependencies ─────────────────────────────────────
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install
 
 # ── Builder ──────────────────────────────────────────
 FROM base AS builder
@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
